@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Complaint Web Form</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      margin: 0;
+      padding: 25px 15px;
+      color: #1e293b;
+    }
+    .container {
+      max-width: 750px;
+      margin: auto;
+      background: white;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 5px 25px #00000012;
+    }
+    h1 { text-align: center; color: #1d4ed8; }
+    .subtitle { text-align: center; color: #64748b; }
+    label { display: block; margin-top: 18px; font-weight: bold; }
+    input, textarea, select {
+      width: 100%;
+      padding: 12px;
+      margin-top: 7px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font: inherit;
+    }
+    textarea { min-height: 130px; }
+    .consent { display: flex; align-items: flex-start; gap: 10px; }
+    .consent input { width: auto; margin-top: 20px; }
+    button {
+      width: 100%;
+      background: #2563eb;
+      color: white;
+      padding: 14px;
+      border: none;
+      border-radius: 9px;
+      margin-top: 22px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .6; cursor: wait; }
+    #result { margin-top: 18px; text-align: center; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>ระบบรับเรื่องร้องเรียน</h1>
+    <p class="subtitle">Complaint Management System</p>
+
+    <form id="complaintForm">
+      <label>ชื่อ-นามสกุล *</label>
+      <input name="full_name" required>
+
+      <label>เบอร์โทรศัพท์</label>
+      <input name="phone" type="tel">
+
+      <label>อีเมล</label>
+      <input name="email" type="email">
+
+      <label>หัวข้อเรื่องร้องเรียน *</label>
+      <input name="subject" required>
+
+      <label>รายละเอียดเรื่องร้องเรียน *</label>
+      <textarea name="complaint_detail" required></textarea>
+
+      <label>วันที่เกิดเหตุ</label>
+      <input name="incident_date" type="date">
+
+      <label>สถานที่เกิดเหตุ</label>
+      <input name="incident_location">
+
+      <label>ช่องทางที่สะดวกให้ติดต่อกลับ</label>
+      <select name="contact_method">
+        <option value="phone">โทรศัพท์</option>
+        <option value="email">อีเมล</option>
+      </select>
+
+      <label class="consent">
+        <input name="consent" type="checkbox" required>
+        <span>ยินยอมให้ใช้ข้อมูลเพื่อดำเนินการเรื่องร้องเรียน</span>
+      </label>
+
+      <button id="submitBtn" type="submit">ส่งเรื่องร้องเรียน</button>
+      <div id="result" role="status" aria-live="polite"></div>
+    </form>
+  </main>
+
+  <script>
+    // ใส่ URL ของ Make Custom Webhook ที่นี่
+    const WEBHOOK_URL = "PASTE_YOUR_MAKE_WEBHOOK_URL_HERE";
+
+    const form = document.getElementById("complaintForm");
+    const result = document.getElementById("result");
+    const button = document.getElementById("submitBtn");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      if (WEBHOOK_URL.includes("PASTE_YOUR")) {
+        result.textContent = "กรุณาตั้งค่า Webhook URL ก่อนใช้งาน";
+        return;
+      }
+
+      const data = Object.fromEntries(new FormData(form));
+      data.consent = form.elements.consent.checked;
+
+      button.disabled = true;
+      result.textContent = "กำลังส่งข้อมูล...";
+
+      try {
+        // ส่งเป็น text/plain เพื่อลดปัญหา CORS preflight
+        const response = await fetch(WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain" },
+          body: JSON.stringify(data)
+        });
+
+        if (!response.ok) throw new Error("HTTP " + response.status);
+
+        const text = await response.text();
+        let payload = {};
+        try { payload = JSON.parse(text); } catch (_) {}
+
+        if (payload.success === true && payload.ticket_id) {
+          result.textContent =
+            "รับเรื่องสำเร็จ หมายเลข Ticket: " + payload.ticket_id;
+          form.reset();
+        } else {
+          result.textContent =
+            "ส่งข้อมูลแล้ว แต่ยังไม่ได้รับการยืนยัน Ticket กรุณาตรวจสอบกับเจ้าหน้าที่ก่อนส่งซ้ำ";
+        }
+      } catch (error) {
+        result.textContent =
+          "ยังยืนยันผลการส่งไม่ได้ กรุณาตรวจสอบก่อนส่งซ้ำ";
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
